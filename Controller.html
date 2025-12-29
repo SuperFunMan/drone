@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎮 Drone Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+        
+        #connect-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        
+        h1 { font-size: 32px; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .subtitle { color: rgba(255,255,255,0.8); margin-bottom: 40px; font-size: 18px; }
+        
+        #code-input { display: flex; gap: 12px; margin-bottom: 30px; }
+        
+        .code-char {
+            width: 65px;
+            height: 75px;
+            font-size: 40px;
+            text-align: center;
+            background: rgba(255,255,255,0.2);
+            border: 3px solid #ffd93d;
+            border-radius: 15px;
+            color: white;
+            text-transform: uppercase;
+        }
+        
+        .code-char:focus { outline: none; border-color: #1dd1a1; box-shadow: 0 0 20px rgba(29,209,161,0.5); }
+        
+        #connect-btn {
+            padding: 18px 60px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #1dd1a1 0%, #10ac84 100%);
+            border: none;
+            border-radius: 35px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        #connect-btn:active { transform: scale(0.95); }
+        #connect-btn:disabled { background: #555; }
+        #error-msg { color: #ff6b6b; margin-top: 20px; font-size: 16px; }
+        
+        #controller-screen {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+            background: linear-gradient(180deg, #1a0533 0%, #2d1b4e 50%, #4a2c7a 100%);
+        }
+        
+        #top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.3);
+        }
+        
+        .status-indicator { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #1dd1a1;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        #motion-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #tilt-indicator {
+            width: 220px;
+            height: 220px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            position: relative;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        }
+        
+        #tilt-dot {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #ffd93d 0%, #f9ca24 100%);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 30px rgba(255,217,61,0.6);
+            border: 3px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        #crosshair-h, #crosshair-v { position: absolute; background: rgba(255,255,255,0.2); }
+        #crosshair-h { width: 100%; height: 2px; top: 50%; }
+        #crosshair-v { width: 2px; height: 100%; left: 50%; }
+        
+        .motion-label { margin-top: 25px; font-size: 22px; color: #ffd93d; font-weight: bold; }
+        .motion-hint { font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 8px; }
+        
+        #controls-row {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            padding: 25px;
+            background: rgba(0,0,0,0.4);
+        }
+        
+        #throttle-container { display: flex; flex-direction: column; align-items: center; width: 35%; }
+        #throttle-label { font-size: 16px; color: #1dd1a1; margin-bottom: 12px; font-weight: bold; }
+        
+        #throttle-track {
+            width: 70px;
+            height: 180px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 35px;
+            position: relative;
+            border: 3px solid #1dd1a1;
+        }
+        
+        #throttle-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, #1dd1a1 0%, #10ac84 100%);
+            border-radius: 0 0 32px 32px;
+        }
+        
+        #throttle-handle {
+            position: absolute;
+            width: 90px;
+            height: 35px;
+            background: linear-gradient(180deg, #FFF 0%, #DDD 100%);
+            border-radius: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #throttle-handle::after { content: '≡'; color: #666; font-size: 20px; font-weight: bold; }
+        #throttle-value { font-size: 28px; font-weight: bold; margin-top: 15px; color: #1dd1a1; }
+        
+        #yaw-container { display: flex; flex-direction: column; align-items: center; width: 55%; }
+        #yaw-label { font-size: 16px; color: #ffa502; margin-bottom: 12px; font-weight: bold; }
+        #yaw-buttons { display: flex; gap: 25px; }
+        
+        .yaw-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid #ffa502;
+            background: rgba(255, 165, 2, 0.2);
+            color: white;
+            font-size: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .yaw-btn:active { background: #ffa502; transform: scale(0.95); }
+        
+        #permission-prompt {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        #permission-prompt h2 { font-size: 28px; margin-bottom: 20px; }
+        #permission-prompt p { color: rgba(255,255,255,0.7); margin-bottom: 30px; line-height: 1.6; font-size: 18px; }
+        
+        #permission-btn {
+            padding: 18px 50px;
+            font-size: 22px;
+            background: linear-gradient(135deg, #1dd1a1 0%, #10ac84 100%);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        #instructions {
+            background: rgba(0,150,0,0.3);
+            padding: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #1dd1a1;
+            border-top: 2px solid #1dd1a1;
+        }
+    </style>
+</head>
+<body>
+    <div id="connect-screen">
+        <h1>🎮 Drone Controller</h1>
+        <p class="subtitle">Enter the code from the iPad</p>
+        
+        <div id="code-input">
+            <input type="text" class="code-char" maxlength="1" data-index="0" inputmode="text" autocomplete="off">
+            <input type="text" class="code-char" maxlength="1" data-index="1" inputmode="text" autocomplete="off">
+            <input type="text" class="code-char" maxlength="1" data-index="2" inputmode="text" autocomplete="off">
+            <input type="text" class="code-char" maxlength="1" data-index="3" inputmode="text" autocomplete="off">
+        </div>
+        
+        <button id="connect-btn">🚀 Connect!</button>
+        <p id="error-msg"></p>
+    </div>
+    
+    <div id="permission-prompt">
+        <h2>📱 Enable Motion!</h2>
+        <p>Tilt your phone to fly the drone!<br>Press the button to enable motion controls.</p>
+        <button id="permission-btn">✨ Enable Motion ✨</button>
+    </div>
+    
+    <div id="controller-screen">
+        <div id="top-bar">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Connected!</span>
+            </div>
+            <div>🚁 Flying!</div>
+        </div>
+        
+        <div id="motion-area">
+            <div id="tilt-indicator">
+                <div id="crosshair-h"></div>
+                <div id="crosshair-v"></div>
+                <div id="tilt-dot">🚁</div>
+            </div>
+            <div class="motion-label">✨ TILT TO FLY ✨</div>
+            <div class="motion-hint">Hold flat • Tilt to move • Double-tap to reset</div>
+        </div>
+        
+        <div id="controls-row">
+            <div id="throttle-container">
+                <div id="throttle-label">⬆️ UP / DOWN ⬇️</div>
+                <div id="throttle-track">
+                    <div id="throttle-fill" style="height: 50%"></div>
+                    <div id="throttle-handle" style="bottom: calc(50% - 17px)"></div>
+                </div>
+                <div id="throttle-value">50%</div>
+            </div>
+            
+            <div id="yaw-container">
+                <div id="yaw-label">🔄 SPIN 🔄</div>
+                <div id="yaw-buttons">
+                    <button class="yaw-btn" id="yaw-left">↺</button>
+                    <button class="yaw-btn" id="yaw-right">↻</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="instructions">
+            🎯 Collect numbers to add them up! Get + or × then a number for math magic!
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        const connectScreen = document.getElementById('connect-screen');
+        const controllerScreen = document.getElementById('controller-screen');
+        const permissionPrompt = document.getElementById('permission-prompt');
+        const codeInputs = document.querySelectorAll('.code-char');
+        const connectBtn = document.getElementById('connect-btn');
+        const errorMsg = document.getElementById('error-msg');
+        const tiltDot = document.getElementById('tilt-dot');
+        const throttleTrack = document.getElementById('throttle-track');
+        const throttleFill = document.getElementById('throttle-fill');
+        const throttleHandle = document.getElementById('throttle-handle');
+        const throttleValue = document.getElementById('throttle-value');
+        const yawLeft = document.getElementById('yaw-left');
+        const yawRight = document.getElementById('yaw-right');
+        
+        let peer = null;
+        let conn = null;
+        let throttle = 50;
+        let yaw = 0;
+        let tiltX = 0;
+        let tiltY = 0;
+        let baseBeta = null;
+        let baseGamma = null;
+        
+        // Code input handling
+        codeInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const value = e.target.value.toUpperCase();
+                e.target.value = value;
+                if (value && index < 3) codeInputs[index + 1].focus();
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    codeInputs[index - 1].focus();
+                }
+            });
+        });
+        
+        connectBtn.addEventListener('click', () => {
+            const code = Array.from(codeInputs).map(i => i.value).join('').toUpperCase();
+            
+            if (code.length !== 4) {
+                errorMsg.textContent = 'Please enter the 4-letter code!';
+                return;
+            }
+            
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+            errorMsg.textContent = '';
+            
+            peer = new Peer();
+            
+            peer.on('open', () => {
+                conn = peer.connect('drone-sim-' + code);
+                
+                conn.on('open', () => {
+                    connectScreen.style.display = 'none';
+                    
+                    if (typeof DeviceMotionEvent !== 'undefined' && 
+                        typeof DeviceMotionEvent.requestPermission === 'function') {
+                        permissionPrompt.style.display = 'flex';
+                    } else {
+                        startController();
+                    }
+                });
+                
+                conn.on('error', () => {
+                    errorMsg.textContent = 'Could not connect. Check the code!';
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '🚀 Connect!';
+                });
+            });
+            
+            peer.on('error', () => {
+                errorMsg.textContent = 'Could not find the drone. Check the code!';
+                connectBtn.disabled = false;
+                connectBtn.textContent = '🚀 Connect!';
+            });
+            
+            setTimeout(() => {
+                if (!conn || !conn.open) {
+                    errorMsg.textContent = 'Connection timed out. Try again!';
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = '🚀 Connect!';
+                }
+            }, 10000);
+        });
+        
+        document.getElementById('permission-btn').addEventListener('click', async () => {
+            try {
+                const response = await DeviceMotionEvent.requestPermission();
+                if (response === 'granted') {
+                    permissionPrompt.style.display = 'none';
+                    startController();
+                }
+            } catch (e) {
+                console.error(e);
+                permissionPrompt.style.display = 'none';
+                startController();
+            }
+        });
+        
+        function startController() {
+            controllerScreen.style.display = 'flex';
+            
+            window.addEventListener('deviceorientation', (e) => {
+                if (baseBeta === null) {
+                    baseBeta = e.beta;
+                    baseGamma = e.gamma;
+                }
+                
+                tiltX = Math.max(-1, Math.min(1, (e.beta - baseBeta) / 30));
+                tiltY = Math.max(-1, Math.min(1, (e.gamma - baseGamma) / 30));
+                
+                const dotX = tiltY * 85;
+                const dotY = tiltX * 85;
+                tiltDot.style.left = `calc(50% + ${dotX}px)`;
+                tiltDot.style.top = `calc(50% + ${dotY}px)`;
+            });
+            
+            // Throttle touch
+            let throttleDragging = false;
+            
+            throttleTrack.addEventListener('touchstart', (e) => {
+                throttleDragging = true;
+                updateThrottle(e.touches[0]);
+                e.preventDefault();
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (throttleDragging) updateThrottle(e.touches[0]);
+            });
+            
+            document.addEventListener('touchend', () => throttleDragging = false);
+            
+            function updateThrottle(touch) {
+                const rect = throttleTrack.getBoundingClientRect();
+                const y = touch.clientY - rect.top;
+                throttle = Math.max(0, Math.min(100, 100 - (y / rect.height) * 100));
+                
+                throttleFill.style.height = throttle + '%';
+                throttleHandle.style.bottom = `calc(${throttle}% - 17px)`;
+                throttleValue.textContent = Math.round(throttle) + '%';
+            }
+            
+            // Yaw buttons
+            yawLeft.addEventListener('touchstart', (e) => { yaw = -1; e.preventDefault(); });
+            yawLeft.addEventListener('touchend', () => yaw = 0);
+            yawRight.addEventListener('touchstart', (e) => { yaw = 1; e.preventDefault(); });
+            yawRight.addEventListener('touchend', () => yaw = 0);
+            
+            // Send data
+            setInterval(() => {
+                if (conn && conn.open) {
+                    conn.send({ type: 'control', tiltX, tiltY, throttle, yaw });
+                }
+            }, 50);
+            
+            // Double tap to recalibrate
+            let lastTap = 0;
+            document.getElementById('motion-area').addEventListener('touchend', () => {
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    baseBeta = null;
+                    baseGamma = null;
+                }
+                lastTap = now;
+            });
+        }
+    </script>
+</body>
+</html>
